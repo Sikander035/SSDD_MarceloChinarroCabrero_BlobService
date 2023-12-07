@@ -6,7 +6,7 @@ from typing import List
 
 import Ice
 
-from .blob import BlobService
+from icedrive_blob.blob import BlobService
 
 
 class BlobApp(Ice.Application):
