@@ -29,4 +29,5 @@ linters = ["black", "ruff", "pydocstyle"]
 "Homepage" = "https://github.com/Sikander035/SSDD_MarceloChinarroCabrero_BlobService"
 
 [project.scripts]
-icedrive-blob = "icedrive_blob.app:main"
+icedrive-blob = "icedrive_blob.command_line_handler:server"
+icedrive-client = "icedrive_blob.command_line_handler:client"

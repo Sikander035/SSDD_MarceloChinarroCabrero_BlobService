@@ -1,0 +1,19 @@
+{
+  "blobs": [
+    {
+      "blobId": "1",
+      "numLinks": 3,
+      "fileName": "archivo1.txt"
+    },
+    {
+      "blobId": "2",
+      "numLinks": 5,
+      "fileName": "archivo2.txt"
+    },
+    {
+      "blobId": "3",
+      "numLinks": 2,
+      "fileName": "archivo3.txt"
+    }
+  ]
+}

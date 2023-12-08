@@ -1,4 +1,4 @@
-"""Package for IceDrive Authentication implementation."""
+"""Package for IceDrive Blob implementation."""
 
 import importlib.util
 import logging
