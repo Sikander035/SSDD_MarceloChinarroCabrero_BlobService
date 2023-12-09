@@ -6,8 +6,7 @@ from typing import List
 
 import Ice
 import IceDrive
-
-from icedrive_blob.blob import BlobService
+from icedrive_blob.blob import BlobService, DataTransfer
 
 
 class BlobApp(Ice.Application):
@@ -40,9 +39,5 @@ class ClientApp(Ice.Application):
         if not blob_prx:
             print("Invalid proxy")
             return 2
-
-        ##blob_prx.link("hola")    
-
-        return 0
     
 

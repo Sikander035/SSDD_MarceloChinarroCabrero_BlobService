@@ -1,6 +1,8 @@
 """Module for servants implementations."""
 import json
 import hashlib
+import random
+import os
 import Ice
 
 import IceDrive
@@ -18,7 +20,7 @@ class DataTransfer(IceDrive.DataTransfer):
             # Si no hay más datos para leer, se retorna un bloque de bytes de menor tamaño
             return data
         else:
-            raise RuntimeError("No file is open for reading")
+            raise IceDrive.FailedToReadData("No file is open for reading")
 
     def close(self, current: Ice.Current = None) -> None:
         """Close the currently opened file."""
@@ -53,7 +55,7 @@ class BlobService(IceDrive.BlobService):
                 blob['numLinks'] += 1
                 break
         else:
-            raise RuntimeError("No blob with the given blob_id")
+            raise IceDrive.UnknownBlob("No blob with the given blob_id")
         self.save_blobs()
 
     def unlink(self, blob_id: str, current: Ice.Current = None) -> None:
@@ -64,9 +66,11 @@ class BlobService(IceDrive.BlobService):
                 if blob['numLinks'] == 0:
                     self.blobs.remove(blob)
                 break
+        else:
+            raise IceDrive.UnknownBlob("No blob with the given blob_id")
         self.save_blobs()
 
-    def readwholefile(self, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> bytes:
+    def read_the_whole_file(self, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> bytes:
         full_data = b''
         data = datatransfer.read(1024)
         while(data):
@@ -78,7 +82,7 @@ class BlobService(IceDrive.BlobService):
     def upload(self, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> str:
         """Register a DataTransfer object to upload a file to the service."""
 
-        data = self.readwholefile(datatransfer)
+        data = self.read_the_whole_file(datatransfer)
 
         blob_id = hashlib.sha256(data).hexdigest()  # Generar un blobId único basado en el hash SHA256 de los datos
 
@@ -88,16 +92,39 @@ class BlobService(IceDrive.BlobService):
                 break
         # Si el blob no existe, añadirlo a la lista
         else:
-            self.blobs.append({'blobId': blob_id, 'numLinks': 0, 'name': datatransfer.file_name})
+            nombre_aleatorio = str(random.randint(0, 99999999))
 
+            # Comprobar que el nombre del archivo no se repita
+            existing_names = set(blob['name'] for blob in self.blobs)
+            while nombre_aleatorio + '.txt' in existing_names:
+                nombre_aleatorio = str(random.randint(0, 99999999))
+
+            # Añadir el blob a la lista    
+            self.blobs.append({'blobId': blob_id, 'numLinks': 0, 'name': nombre_aleatorio + '.txt'})
+            self.save_blobs()
+
+            # Guardar el archivo generado en la carpeta "../ficheros"
+            try:
+                with open("../ficheros/" + nombre_aleatorio + '.txt', 'wb') as f:
+                    f.write(data)
+            except IOError as e:
+                print(f"Error at saving the file: {e}")
+        
         return blob_id
 
     def download(self, blob_id: str, current: Ice.Current = None) -> IceDrive.DataTransferPrx:
         """Return a DataTransfer object to enable the client to download the given blob_id."""
-        if blob_id in self.blobs:
-            data = self.blobs[blob_id]
-            data_transfer = IceDrive.DataTransferI(data)  # Crear una instancia de DataTransfer
+
+        for blob in self.blobs:
+            if blob['blobId'] == blob_id:
+                name = blob['name']
+                break
+        else:
+            raise ValueError(f"No blob with the id {blob_id}")
+
+        if os.path.exists("../ficheros/" + name):
+            data_transfer = DataTransfer("../ficheros/" + name)  # Crear una instancia de DataTransfer
             proxy = current.adapter.addWithUUID(data_transfer)  # Añadir el objeto al adaptador de objetos
             return IceDrive.DataTransferPrx.uncheckedCast(proxy)  # Devolver el proxy
         else:
-            raise RuntimeError("No blob with the given blob_id")
+            raise IceDrive.UnknownBlob("No file with the given blob_id")
