@@ -1,5 +1,6 @@
 """Module for servants implementations."""
-import uuid
+import json
+import hashlib
 import Ice
 
 import IceDrive
@@ -32,28 +33,48 @@ class BlobService(IceDrive.BlobService):
     """Implementation of an IceDrive.BlobService interface."""
 
     def __init__(self):
-        self.blobs = {}  # Diccionario para almacenar los blobs
-        self.links = {}  # Diccionario para almacenar el número de enlaces a cada blob
+        self.blobs_file = 'persistencia.json'  # Archivo para almacenar los blobs
+        try:
+            with open(self.blobs_file, 'r') as f:
+                self.blobs = json.load(f)['blobs']
+        except FileNotFoundError:
+            print("File not found")
+            return 2
+
+    def save_blobs(self):
+        """Save"""
+        with open(self.blobs_file, 'w') as f:
+            json.dump({'blobs': self.blobs}, f)
 
     def link(self, blob_id: str, current: Ice.Current = None) -> None:
         """Mark a blob_id file as linked in some directory."""
-        if blob_id in self.links:
-            self.links[blob_id] += 1
-        else:
-            self.links[blob_id] = 1
+        for blob in self.blobs:
+            if blob['blobId'] == blob_id:
+                blob['numLinks'] += 1
+                break
+            else:
+                self.blobs.append({'blobId': blob_id, 'numLinks': 1, 'fileName': ''})
+            self.save_blobs()
 
     def unlink(self, blob_id: str, current: Ice.Current = None) -> None:
         """Mark a blob_id as unlinked (removed) from some directory."""
-        if blob_id in self.links:
-            self.links[blob_id] -= 1
-            if self.links[blob_id] == 0:
-                del self.links[blob_id]
-                del self.blobs[blob_id]
+        for blob in self.blobs:
+            if blob['blobId'] == blob_id:
+                blob['numLinks'] -= 1
+                if blob['numLinks'] == 0:
+                    self.blobs.remove(blob)
+                break
+        self.save_blobs()
 
     def upload(self, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> str:
         """Register a DataTransfer object to upload a file to the service."""
-        blob_id = str(uuid.uuid4())  # Generar un blobId único
-        self.blobs[blob_id] = datatransfer.read()
+        data = datatransfer.read()
+        blob_id = hashlib.sha256(data).hexdigest()  # Generar un blobId único basado en el hash SHA256 de los datos
+
+        # Verificar si el blob ya existe
+        # Si el blob no existe, añadirlo a la lista
+        self.link(blob_id)
+
         return blob_id
 
     def download(self, blob_id: str, current: Ice.Current = None) -> IceDrive.DataTransferPrx:
