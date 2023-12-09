@@ -30,14 +30,40 @@ class BlobApp(Ice.Application):
 class ClientApp(Ice.Application):
     
     def run(self, args: List[str]) -> int:
-        if len(args) != 2:
-            print("Usage: python client.py <proxy>")
-            return 2
-        
+        #if len(args) != 2:
+            #print("Usage: python client.py <proxy>")
+            #return 2
+        print(args)
         proxy = self.communicator().stringToProxy(args[1])
         blob_prx = IceDrive.BlobServicePrx.checkedCast(proxy)
         if not blob_prx:
             print("Invalid proxy")
             return 2
+        
+        # blob_prx.upload()
+        adapter = self.communicator().createObjectAdapter("DataTransferAdapter")
+        adapter.activate()
+
+        datatransferUploaded = DataTransfer("../ficherosCliente/prueba.txt")
+        datatransferUploaded_proxy = adapter.addWithUUID(datatransferUploaded)
+        blob_id = blob_prx.upload(datatransferUploaded_proxy)
+        print ("Blob id: ", blob_id)
+
+        # blob_prx.link()
+        blob_prx.link(blob_id)
+
+        # blob_prx.unlink()
+        blob_prx.unlink(blob_id)
+
+        # blob_prx.download()
+        datatransferDownloaded_proxy = blob_prx.download(blob_id)
+
+        full_data = b''
+        data = datatransferDownloaded_proxy.read(1024)
+        while(data):
+            full_data += data
+            data = datatransferDownloaded_proxy.read(1024)
+        print(full_data)
+        
     
 
