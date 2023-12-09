@@ -8,8 +8,8 @@ import IceDrive
 class DataTransfer(IceDrive.DataTransfer):
     """Implementation of an IceDrive.DataTransfer interface."""
 
-    def __init__(self, file_name : str):
-        self.file = open("../ficheros/" + file_name, 'rb')
+    def __init__(self, file_path : str):
+        self.file = open(file_path, 'rb')
 
     def read(self, size: int, current: Ice.Current = None) -> bytes:
         """Returns a list of bytes from the opened file."""
@@ -52,9 +52,9 @@ class BlobService(IceDrive.BlobService):
             if blob['blobId'] == blob_id:
                 blob['numLinks'] += 1
                 break
-            else:
-                self.blobs.append({'blobId': blob_id, 'numLinks': 1, 'fileName': ''})
-            self.save_blobs()
+        else:
+            raise RuntimeError("No blob with the given blob_id")
+        self.save_blobs()
 
     def unlink(self, blob_id: str, current: Ice.Current = None) -> None:
         """Mark a blob_id as unlinked (removed) from some directory."""
@@ -66,14 +66,29 @@ class BlobService(IceDrive.BlobService):
                 break
         self.save_blobs()
 
+    def readwholefile(self, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> bytes:
+        full_data = b''
+        data = datatransfer.read(1024)
+        while(data):
+            full_data += data
+            data = datatransfer.read(1024)
+        return full_data
+
+
     def upload(self, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> str:
         """Register a DataTransfer object to upload a file to the service."""
-        data = datatransfer.read()
+
+        data = self.readwholefile(datatransfer)
+
         blob_id = hashlib.sha256(data).hexdigest()  # Generar un blobId único basado en el hash SHA256 de los datos
 
         # Verificar si el blob ya existe
+        for blob in self.blobs:
+            if blob['blobId'] == blob_id:
+                break
         # Si el blob no existe, añadirlo a la lista
-        self.link(blob_id)
+        else:
+            self.blobs.append({'blobId': blob_id, 'numLinks': 0, 'name': datatransfer.file_name})
 
         return blob_id
 
