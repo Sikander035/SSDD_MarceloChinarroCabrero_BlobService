@@ -1,13 +1,13 @@
-# IceDrive Authentication service template
+# IceDrive Blob service
+## Usage
 
-This repository contains the project template for the Blob service proposed as laboratory work for the students
-of Distributed Systems in the course 2023-2024.
+    bash
+    pip install -e.
 
-## Updating `pyproject.toml`
+For server aplication:  
 
-One of the first things that you need to setup when you clone this branch is to take a look into
-`pyproject.toml` file and update the needed values:
+    icedrive-blob --Ice.Config=config/blob.config
 
-- Project authors
-- Project dependencies
-- Projects URL humepage
+For the client application (change the code in app.py following the instructions in the comments to test the functionality of the client application):  
+
+    icedrive-client --Ice.Config=config/datatransfer.config "{proxy sent by the server aplication standart output}"

@@ -63,7 +63,10 @@ class BlobService(IceDrive.BlobService):
         for blob in self.blobs:
             if blob['blobId'] == blob_id:
                 blob['numLinks'] -= 1
-                if blob['numLinks'] == 0:
+                if blob['numLinks'] <= 0:
+                    file_path = "ficheros/" + blob['name']
+                    if os.path.exists(file_path):
+                        os.remove(file_path)
                     self.blobs.remove(blob)
                 break
         else:
@@ -105,7 +108,7 @@ class BlobService(IceDrive.BlobService):
 
             # Guardar el archivo generado en la carpeta "../ficheros"
             try:
-                with open("../ficheros/" + nombre_aleatorio + '.txt', 'wb') as f:
+                with open("ficheros/" + nombre_aleatorio + '.txt', 'wb') as f:
                     f.write(data)
             except IOError as e:
                 print(f"Error at saving the file: {e}")
@@ -122,8 +125,8 @@ class BlobService(IceDrive.BlobService):
         else:
             raise ValueError(f"No blob with the id {blob_id}")
 
-        if os.path.exists("../ficheros/" + name):
-            data_transfer = DataTransfer("../ficheros/" + name)  # Crear una instancia de DataTransfer
+        if os.path.exists("ficheros/" + name):
+            data_transfer = DataTransfer("ficheros/" + name)  # Crear una instancia de DataTransfer
             proxy = current.adapter.addWithUUID(data_transfer)  # Añadir el objeto al adaptador de objetos
             return IceDrive.DataTransferPrx.uncheckedCast(proxy)  # Devolver el proxy
         else:
