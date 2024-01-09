@@ -82,7 +82,7 @@ class BlobService(IceDrive.BlobService):
         return full_data
 
 
-    def upload(self, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> str:
+    def upload(self, user: IceDrive.UserPrx, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> str:
         """Register a DataTransfer object to upload a file to the service."""
 
         data = self.read_the_whole_file(datatransfer)
@@ -115,7 +115,7 @@ class BlobService(IceDrive.BlobService):
         
         return blob_id
 
-    def download(self, blob_id: str, current: Ice.Current = None) -> IceDrive.DataTransferPrx:
+    def download(self, user: IceDrive.UserPrx, blob_id: str, current: Ice.Current = None) -> IceDrive.DataTransferPrx:
         """Return a DataTransfer object to enable the client to download the given blob_id."""
 
         for blob in self.blobs:
