@@ -1,31 +1,73 @@
 """Blob service application."""
 
+import threading
+import time
 import logging
 import sys
 from typing import List
 
 import Ice
 import IceDrive
+import IceStorm
 from icedrive_blob.blob import BlobService, DataTransfer
+from icedrive_blob.discovery import Discovery
 
 
 class BlobApp(Ice.Application):
     """Implementation of the Ice.Application for the Blob service."""
 
+    """Announce the service every 5 seconds."""
+    def announce(publisher: IceDrive.DiscoveryPrx, discovery_proxy: IceDrive.BlobServicePrx) -> None:
+        while True:
+            # Announce the Blob service through the IceDrive.DiscoveryPrx every 5 seconds
+            publisher.announceBlobService(discovery_proxy)
+            time.sleep(5)
+
     def run(self, args: List[str]) -> int:
         """Execute the code for the BlobApp class."""
+        # Create and activate the object adapter for the Blob service
         adapter = self.communicator().createObjectAdapter("BlobAdapter")
         adapter.activate()
 
-        servant = BlobService()
-        servant_proxy = adapter.addWithUUID(servant)
+        # Instantiate the BlobService and Discovery objects
+        servantDiscovery = Discovery()
+        servantBlob = BlobService(servantDiscovery)
 
-        logging.info("Proxy: %s", servant_proxy)
+        # Add the BlobService and Discovery objects to the object adapter with unique UUIDs
+        blob_proxy = adapter.addWithUUID(servantBlob)
+        discovery_proxy = adapter.addWithUUID(servantDiscovery)
 
+        # Log the Blob proxy information
+        logging.info("Blob Proxy: %s", blob_proxy)
+
+        # Setup IceStorm
+        properties = self.communicator().getProperties()
+        topic_name = properties.getProperty("DiscoveryTopic")
+
+        # Retrieve the IceStorm.TopicManagerPrx
+        topic_manager = IceStorm.TopicManagerPrx.checkedCast(
+            self.communicator().propertyToProxy("IceStorm.TopicManager.Proxy")
+        )
+
+        try:
+            # Try to retrieve the IceStorm topic or handle the NoSuchTopic exception
+            channel = topic_manager.retrieve(topic_name)
+        except IceStorm.NoSuchTopic:
+            print("Topic does not exist")
+
+        # Subscribe to the IceStorm topic with the Discovery proxy
+        publisher = IceDrive.DiscoveryPrx.uncheckedCast(channel.getPublisher())
+        channel.subscribeAndGetPublisher({}, discovery_proxy)
+
+        # Start a new thread for announcing the Blob service
+        threading.Thread(target=BlobApp.announce, args=(publisher, IceDrive.BlobServicePrx.uncheckedCast(blob_proxy))).start()
+
+        # Set up shutdown behavior on interrupt and wait for the communicator to finish
         self.shutdownOnInterrupt()
         self.communicator().waitForShutdown()
 
         return 0
+        
 
 class ClientApp(Ice.Application):
     

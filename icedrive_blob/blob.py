@@ -3,7 +3,10 @@ import json
 import hashlib
 import random
 import os
+import threading
 import Ice
+import IceStorm
+from delayed_response import BlobQuery, BlobQueryResponse 
 
 import IceDrive
 
@@ -34,7 +37,7 @@ class DataTransfer(IceDrive.DataTransfer):
 class BlobService(IceDrive.BlobService):
     """Implementation of an IceDrive.BlobService interface."""
 
-    def __init__(self):
+    def __init__(self, discoveryServant, queryPublisher):
         self.blobs_file = 'persistencia.json'  # Archivo para almacenar los blobs
         try:
             with open(self.blobs_file, 'r') as f:
@@ -42,11 +45,33 @@ class BlobService(IceDrive.BlobService):
         except FileNotFoundError:
             print("File not found")
             return 2
+        
+        self.discovery = discoveryServant
+        self.queryPublisher = queryPublisher # Publisher para publicar las queries
+        self.expected_responses = {} # Diccionario para almacenar las respuestas esperadas
 
     def save_blobs(self):
         """Save"""
         with open(self.blobs_file, 'w') as f:
             json.dump({'blobs': self.blobs}, f)
+
+    def remove_object_if_exists(self, adapter: Ice.ObjectAdapter, identity: Ice.Identity) -> None:
+        if adapter.find(identity) is not None:
+            adapter.remove(identity)
+            self.expected_responses[identity].set_exception(IceDrive.ResultUnavailable())
+
+        del self.expected_responses[identity]
+
+    def prepare_amd_response_callback(self, current: Ice.Current) -> IceDrive.BlobQueryResponsePrx:
+        future = Ice.Future()
+        response = BlobQueryResponse(future)
+        prx = current.adapter.addWithUUID(response)
+        query_response_prx = IceDrive.BlobQueryResponsePrx.uncheckedCast(prx)
+
+        identity = query_response_prx.ice_getIdentity()
+        self.expected_responses[identity] = future
+        threading.Timer(5.0, self.remove_object_if_exists, (current.adapter, identity)).start()
+        return query_response_prx
 
     def link(self, blob_id: str, current: Ice.Current = None) -> None:
         """Mark a blob_id file as linked in some directory."""
@@ -55,7 +80,11 @@ class BlobService(IceDrive.BlobService):
                 blob['numLinks'] += 1
                 break
         else:
-            raise IceDrive.UnknownBlob("No blob with the given blob_id")
+            # raise IceDrive.UnknownBlob("No blob with the given blob_id")
+            query_response_prx = self.prepare_amd_response_callback(current)
+            self.queryPublisher.linkBlob(blob_id, query_response_prx)
+            return self.expected_responses[query_response_prx.ice_getIdentity()]
+        
         self.save_blobs()
 
     def unlink(self, blob_id: str, current: Ice.Current = None) -> None:
@@ -70,7 +99,11 @@ class BlobService(IceDrive.BlobService):
                     self.blobs.remove(blob)
                 break
         else:
-            raise IceDrive.UnknownBlob("No blob with the given blob_id")
+            # raise IceDrive.UnknownBlob("No blob with the given blob_id")
+            query_response_prx = self.prepare_amd_response_callback(current)
+            self.queryPublisher.UnlinkBlob(blob_id, query_response_prx)
+            return self.expected_responses[query_response_prx.ice_getIdentity()]
+        
         self.save_blobs()
 
     def read_the_whole_file(self, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> bytes:
@@ -84,6 +117,13 @@ class BlobService(IceDrive.BlobService):
 
     def upload(self, user: IceDrive.UserPrx, datatransfer: IceDrive.DataTransferPrx, current: Ice.Current = None) -> str:
         """Register a DataTransfer object to upload a file to the service."""
+
+        # Obtener auth_prx a partir de discovery
+        auth_prx = self.discovery.popValid(self.discovery.authentication_services)
+
+        # Verificar el usuario
+        if not auth_prx.verifyUser(user):
+            raise IceDrive.TemporaryUnavailable("User could not be verified")
 
         data = self.read_the_whole_file(datatransfer)
 
@@ -118,16 +158,24 @@ class BlobService(IceDrive.BlobService):
     def download(self, user: IceDrive.UserPrx, blob_id: str, current: Ice.Current = None) -> IceDrive.DataTransferPrx:
         """Return a DataTransfer object to enable the client to download the given blob_id."""
 
+        # Obtener auth_prx a partir de discovery
+        auth_prx = self.discovery.popValid(self.discovery.authentication_services)
+
+        # Verificar el usuario
+        if not auth_prx.verifyUser(user):
+            raise IceDrive.TemporaryUnavailable("User could not be verified")
+
         for blob in self.blobs:
             if blob['blobId'] == blob_id:
                 name = blob['name']
                 break
-        else:
-            raise ValueError(f"No blob with the id {blob_id}")
 
         if os.path.exists("ficheros/" + name):
             data_transfer = DataTransfer("ficheros/" + name)  # Crear una instancia de DataTransfer
             proxy = current.adapter.addWithUUID(data_transfer)  # Añadir el objeto al adaptador de objetos
             return IceDrive.DataTransferPrx.uncheckedCast(proxy)  # Devolver el proxy
         else:
-            raise IceDrive.UnknownBlob("No file with the given blob_id")
+            # raise IceDrive.UnknownBlob("No blob with the given blob_id")
+            query_response_prx = self.prepare_amd_response_callback(current)
+            self.queryPublisher.downloadBlob(blob_id, query_response_prx)
+            return self.expected_responses[query_response_prx.ice_getIdentity()]
