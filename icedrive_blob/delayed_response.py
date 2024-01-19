@@ -25,6 +25,12 @@ class BlobQueryResponse(IceDrive.BlobQueryResponse):
         self.future_callback.set_result(False)
         current.adapter.remove(current.id)
 
+    def blobIdExists(self, current: Ice.Current = None) -> None:
+        """Indicate that `blob_id` was recognised by other service instance and was unlinked."""
+        self.future_callback.set_result(True)
+        current.adapter.remove(current.id)
+        
+
 class BlobQuery(IceDrive.BlobQuery):
     """Query receiver."""
 
@@ -57,6 +63,16 @@ class BlobQuery(IceDrive.BlobQuery):
             self.blob_service.unlink(blob_id)
             print("Unlink query received")
             response.blobUnlinked()
+
+        except NotImplementedError:
+            pass
+    # void blobIdExists(string blobId, BlobQueryResponse* response);
+    def blobIdExists(self, blob_id: str, response: IceDrive.BlobQueryResponsePrx, current: Ice.Current = None) -> None:
+        """Receive a query to check if a blob_id exists."""
+        try:
+            exists = self.blob_service.blob_id_exists(blob_id)
+            print("BlobIdExists query received")
+            response.blobIdExists(exists)
 
         except NotImplementedError:
             pass

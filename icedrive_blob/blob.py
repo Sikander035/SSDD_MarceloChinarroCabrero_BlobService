@@ -129,29 +129,39 @@ class BlobService(IceDrive.BlobService):
 
         blob_id = hashlib.sha256(data).hexdigest()  # Generar un blobId único basado en el hash SHA256 de los datos
 
-        # Verificar si el blob ya existe
+        # Verificar si el blob ya existe en este servidor
         for blob in self.blobs:
             if blob['blobId'] == blob_id:
                 break
-        # Si el blob no existe, añadirlo a la lista
+    
+        # Si el blob no existe
         else:
-            nombre_aleatorio = str(random.randint(0, 99999999))
+            try:
+                # Verificar si el blob existe en otro servidor (resolución diferida)
+                query_response_prx = self.prepare_amd_response_callback(current)
+                self.queryPublisher.blobIdExists(blob_id, query_response_prx)
+                return self.expected_responses[query_response_prx.ice_getIdentity()]
+            
+            # Si el blob no existe en ningún servidor
+            except NotImplementedError:
 
-            # Comprobar que el nombre del archivo no se repita
-            existing_names = set(blob['name'] for blob in self.blobs)
-            while nombre_aleatorio + '.txt' in existing_names:
                 nombre_aleatorio = str(random.randint(0, 99999999))
 
-            # Añadir el blob a la lista    
-            self.blobs.append({'blobId': blob_id, 'numLinks': 0, 'name': nombre_aleatorio + '.txt'})
-            self.save_blobs()
+                # Comprobar que el nombre del archivo no se repita
+                existing_names = set(blob['name'] for blob in self.blobs)
+                while nombre_aleatorio + '.txt' in existing_names:
+                    nombre_aleatorio = str(random.randint(0, 99999999))
 
-            # Guardar el archivo generado en la carpeta "../ficheros"
-            try:
-                with open("ficheros/" + nombre_aleatorio + '.txt', 'wb') as f:
-                    f.write(data)
-            except IOError as e:
-                print(f"Error at saving the file: {e}")
+                # Añadir el blob a la lista    
+                self.blobs.append({'blobId': blob_id, 'numLinks': 0, 'name': nombre_aleatorio + '.txt'})
+                self.save_blobs()
+
+                # Guardar el archivo generado en la carpeta "../ficheros"
+                try:
+                    with open("ficheros/" + nombre_aleatorio + '.txt', 'wb') as f:
+                        f.write(data)
+                except IOError as e:
+                    print(f"Error at saving the file: {e}")
         
         return blob_id
 
