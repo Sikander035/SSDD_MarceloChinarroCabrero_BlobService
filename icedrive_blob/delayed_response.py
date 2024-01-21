@@ -7,8 +7,8 @@ import threading
 class BlobQueryResponse(IceDrive.BlobQueryResponse):
     """Query response receiver."""
 
-    def __init__(self):
-        self.future_callback = Ice.Future()
+    def __init__(self, future: Ice.Future):
+        self.future_callback = future
 
     def downloadBlob(self, blob: IceDrive.DataTransferPrx, current: Ice.Current = None) -> None:
         """Receive a `DataTransfer` when other service instance knows the `blob_id`."""
@@ -17,17 +17,17 @@ class BlobQueryResponse(IceDrive.BlobQueryResponse):
 
     def blobLinked(self, current: Ice.Current = None) -> None:
         """Indicate that `blob_id` was recognised by other service instance and was linked."""
-        self.future_callback.set_result(True)
+        self.future_callback.set_result(None)
         current.adapter.remove(current.id)
 
     def blobUnlinked(self, current: Ice.Current = None) -> None:
         """Indicate that `blob_id` was recognised by other service instance and was unlinked."""
-        self.future_callback.set_result(False)
+        self.future_callback.set_result(None)
         current.adapter.remove(current.id)
 
     def blobIdExists(self, current: Ice.Current = None) -> None:
         """Indicate that `blob_id` was recognised by other service instance and was unlinked."""
-        self.future_callback.set_result(True)
+        self.future_callback.set_result(None)
         current.adapter.remove(current.id)
         
 
@@ -40,7 +40,7 @@ class BlobQuery(IceDrive.BlobQuery):
     def downloadBlob(self, blob_id: str, response: IceDrive.BlobQueryResponsePrx, current: Ice.Current = None) -> None:
         """Receive a query for downloading an archive based on `blob_id`."""
         try:
-            blob = self.blob_service.download(blob_id)
+            blob = self.blob_service.return_data_transfer(blob_id)
             print("Download query received")
             response.downloadBlob(blob)
 
@@ -66,13 +66,15 @@ class BlobQuery(IceDrive.BlobQuery):
 
         except NotImplementedError:
             pass
-    # void blobIdExists(string blobId, BlobQueryResponse* response);
+    
     def blobIdExists(self, blob_id: str, response: IceDrive.BlobQueryResponsePrx, current: Ice.Current = None) -> None:
         """Receive a query to check if a blob_id exists."""
         try:
-            exists = self.blob_service.blob_id_exists(blob_id)
-            print("BlobIdExists query received")
-            response.blobIdExists(exists)
-
+            if self.blob_service.blobExists(blob_id):
+                print("BlobIdExists query received")
+                response.blobIdExists(blob_id)
+            else:
+                raise Exception
+                
         except NotImplementedError:
             pass
