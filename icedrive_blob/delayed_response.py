@@ -45,7 +45,7 @@ class BlobQuery(IceDrive.BlobQuery):
             response.downloadBlob(blob)
 
         except NotImplementedError:
-            pass
+            print("Blob %s no encontrado", blob_id)
 
     def linkBlob(self, blob_id: str, response: IceDrive.BlobQueryResponsePrx, current: Ice.Current = None) -> None:
         """Receive a query to create a link for `blob_id` archive if it exists."""
@@ -55,7 +55,7 @@ class BlobQuery(IceDrive.BlobQuery):
             response.blobLinked()
 
         except NotImplementedError:
-            pass
+            print("Blob %s no encontrado", blob_id)
 
     def unlinkBlob(self, blob_id: str, response: IceDrive.BlobQueryResponsePrx, current: Ice.Current = None) -> None:
         """Receive a query to destroy a link for `blob_id` archive if it exists."""
@@ -65,7 +65,7 @@ class BlobQuery(IceDrive.BlobQuery):
             response.blobUnlinked()
 
         except NotImplementedError:
-            pass
+            print("Blob %s no encontrado", blob_id)
     
     def blobIdExists(self, blob_id: str, response: IceDrive.BlobQueryResponsePrx, current: Ice.Current = None) -> None:
         """Receive a query to check if a blob_id exists."""
@@ -74,7 +74,7 @@ class BlobQuery(IceDrive.BlobQuery):
                 print("BlobIdExists query received")
                 response.blobIdExists(blob_id)
             else:
-                raise Exception
+                print("Blob %s no encontrado", blob_id)
                 
         except NotImplementedError:
-            pass
+            print("Blob %s no encontrado", blob_id)
