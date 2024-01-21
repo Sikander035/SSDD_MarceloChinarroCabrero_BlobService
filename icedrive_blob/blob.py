@@ -33,6 +33,12 @@ class DataTransfer(IceDrive.DataTransfer):
             current.adapter.remove(current.id)
         else:
             raise RuntimeError("No file is open to close")
+        
+class NoResponseException(Exception):
+    """Excepción personalizada para indicar que no se ha recibido ninguna respuesta."""
+    def __init__(self, identity):
+        self.identity = identity
+        super().__init__(f"No se ha recibido ninguna respuesta para la identidad: {identity}")
 
 class BlobService(IceDrive.BlobService):
     """Implementation of an IceDrive.BlobService interface."""
@@ -60,7 +66,7 @@ class BlobService(IceDrive.BlobService):
         if adapter.find(identity) is not None:
             adapter.remove(identity)
             # definir otra excepción genérica
-            self.expected_responses[identity].set_exception(IceDrive.ResultUnavailable())
+            self.expected_responses[identity].set_exception(NoResponseException(identity))
 
         del self.expected_responses[identity]
 
