@@ -153,6 +153,7 @@ class BlobService(IceDrive.BlobService):
         self.verify_user(user)
 
         data = self.read_the_whole_file(datatransfer)
+        datatransfer.close()
 
         blob_id = hashlib.sha256(data).hexdigest()  # Generar un blobId único basado en el hash SHA256 de los datos
 
