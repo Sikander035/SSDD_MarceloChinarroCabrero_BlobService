@@ -6,7 +6,7 @@ import os
 import threading
 import Ice
 import IceStorm
-from delayed_response import BlobQuery, BlobQueryResponse 
+from .delayed_response import BlobQuery, BlobQueryResponse 
 
 import IceDrive
 

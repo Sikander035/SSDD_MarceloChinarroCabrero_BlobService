@@ -9,7 +9,7 @@ from typing import List
 import Ice
 import IceDrive
 import IceStorm
-from icedrive_blob.blob import BlobService, DataTransfer
+from icedrive_blob.blob import BlobService
 from icedrive_blob.discovery import Discovery
 
 
@@ -29,9 +29,25 @@ class BlobApp(Ice.Application):
         adapter = self.communicator().createObjectAdapter("BlobAdapter")
         adapter.activate()
 
+        # Retrieve the properties from the configuration file
+        properties = self.communicator().getProperties()
+
+        # Retrieve the IceStorm.TopicManagerPrx
+        topic_manager = IceStorm.TopicManagerPrx.checkedCast(
+            self.communicator().propertyToProxy("IceStorm.TopicManager.Proxy")
+        )
+
         # Instantiate the BlobService and Discovery objects
         servantDiscovery = Discovery()
-        servantBlob = BlobService(servantDiscovery)
+
+        blob_topic_name = properties.getProperty("BlobQueryTopic")
+        try:
+            # Try to retrieve the IceStorm topic or handle the NoSuchTopic exception
+            channel = topic_manager.retrieve(blob_topic_name)
+        except IceStorm.NoSuchTopic:
+            print("Topic does not exist")
+
+        servantBlob = BlobService(servantDiscovery, channel.getPublisher())
 
         # Add the BlobService and Discovery objects to the object adapter with unique UUIDs
         blob_proxy = adapter.addWithUUID(servantBlob)
@@ -41,17 +57,11 @@ class BlobApp(Ice.Application):
         logging.info("Blob Proxy: %s", blob_proxy)
 
         # Setup IceStorm
-        properties = self.communicator().getProperties()
-        topic_name = properties.getProperty("DiscoveryTopic")
-
-        # Retrieve the IceStorm.TopicManagerPrx
-        topic_manager = IceStorm.TopicManagerPrx.checkedCast(
-            self.communicator().propertyToProxy("IceStorm.TopicManager.Proxy")
-        )
+        discovery_topic_name = properties.getProperty("DiscoveryTopic")
 
         try:
             # Try to retrieve the IceStorm topic or handle the NoSuchTopic exception
-            channel = topic_manager.retrieve(topic_name)
+            channel = topic_manager.retrieve(discovery_topic_name)
         except IceStorm.NoSuchTopic:
             print("Topic does not exist")
 
