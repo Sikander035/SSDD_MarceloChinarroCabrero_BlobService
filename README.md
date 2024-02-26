@@ -1,4 +1,4 @@
-WARNING: The application doesn't work for the second task yet. There is the whole funcionality of the application for the task 1 in past commits (last one before January 2024).
+WARNING: The application doesn't work for the second task yet. The whole funcionality of the application for the task 1 is in past commits (last one before January 2024).
 # IceDrive Blob service
 ## Usage
 
